@@ -42,7 +42,7 @@ function LoginForm() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -51,6 +51,12 @@ function LoginForm() {
           },
         });
         if (error) throw error;
+        if (data.session) {
+          // Email confirmation disabled — user is signed in immediately
+          window.location.href = redirect;
+          return;
+        }
+        // Email confirmation required — wait for user to confirm
         toast.success("Check your email for a confirmation link!");
       } else {
         const { error } = await supabase.auth.signInWithPassword({

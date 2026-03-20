@@ -45,7 +45,7 @@ export default function ProfilePage() {
   const fetchData = useCallback(async () => {
     if (!user) return;
 
-    const [hostedRes, claimsRes] = await Promise.all([
+    const [hostedRes, claimsRes, cohostRes] = await Promise.all([
       supabase
         .from("potlucks")
         .select("*")
@@ -56,9 +56,30 @@ export default function ProfilePage() {
         .select("*, potlucks(*)")
         .eq("profile_id", user.id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("cohosts")
+        .select("potluck_id")
+        .eq("profile_id", user.id),
     ]);
 
-    setHostedPotlucks(hostedRes.data || []);
+    let hosted = hostedRes.data || [];
+
+    // Include co-hosted potlucks
+    if (cohostRes.data && cohostRes.data.length > 0) {
+      const cohostIds = cohostRes.data.map((c: any) => c.potluck_id);
+      const { data: cohosted } = await supabase
+        .from("potlucks")
+        .select("*")
+        .in("id", cohostIds)
+        .order("event_date", { ascending: false });
+
+      if (cohosted) {
+        const existingIds = new Set(hosted.map((p) => p.id));
+        hosted = [...hosted, ...cohosted.filter((p) => !existingIds.has(p.id))];
+      }
+    }
+
+    setHostedPotlucks(hosted);
 
     const potluckMap = new Map<string, Potluck & { my_claims: Claim[] }>();
     (claimsRes.data || []).forEach((claim: any) => {

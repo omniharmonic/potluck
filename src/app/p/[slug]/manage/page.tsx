@@ -32,10 +32,12 @@ import {
   Pencil,
   Save,
   X,
+  UserPlus,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatDateTime, getClaimProgress } from "@/lib/utils";
-import type { Potluck, NeedWithClaims, Offer, Invite } from "@/types/database";
+import type { Potluck, NeedWithClaims, Offer, Invite, CohostWithProfile, CohostInvite } from "@/types/database";
 
 export default function ManagePotluckPage() {
   const params = useParams();
@@ -50,7 +52,11 @@ export default function ManagePotluckPage() {
   const [rawOffers, setRawOffers] = useState<Offer[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "verify" | "invites">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "verify" | "invites" | "cohosts">("overview");
+  const [cohosts, setCohosts] = useState<CohostWithProfile[]>([]);
+  const [cohostInvites, setCohostInvites] = useState<CohostInvite[]>([]);
+  const [cohostEmail, setCohostEmail] = useState("");
+  const [sendingCohostInvites, setSendingCohostInvites] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [sendingInvites, setSendingInvites] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
@@ -81,7 +87,7 @@ export default function ManagePotluckPage() {
 
     setPotluck(potluckData);
 
-    const [needsRes, offersRes, invitesRes] = await Promise.all([
+    const [needsRes, offersRes, invitesRes, cohostsRes, cohostInvitesRes] = await Promise.all([
       supabase
         .from("needs")
         .select("*, claims(*, profile:profiles(display_name, avatar_url))")
@@ -97,11 +103,22 @@ export default function ManagePotluckPage() {
         .select("*")
         .eq("potluck_id", potluckData.id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("cohosts")
+        .select("*, profile:profiles(id, display_name, avatar_url)")
+        .eq("potluck_id", potluckData.id),
+      supabase
+        .from("cohost_invites")
+        .select("*")
+        .eq("potluck_id", potluckData.id)
+        .order("created_at", { ascending: false }),
     ]);
 
     setRawNeeds((needsRes.data as NeedWithClaims[]) || []);
     setRawOffers(offersRes.data || []);
     setInvites(invitesRes.data || []);
+    setCohosts((cohostsRes.data as CohostWithProfile[]) || []);
+    setCohostInvites(cohostInvitesRes.data || []);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, router]);
@@ -111,10 +128,16 @@ export default function ManagePotluckPage() {
   }, [authLoading, fetchData]);
 
   useEffect(() => {
-    if (!authLoading && !loading && potluck && user?.id !== potluck.host_id) {
+    if (!authLoading && !loading && potluck && user) {
+      const isCohost = cohosts.some((c) => c.profile_id === user.id);
+      if (user.id !== potluck.host_id && !isCohost) {
+        router.push(`/p/${slug}`);
+      }
+    }
+    if (!authLoading && !loading && potluck && !user) {
       router.push(`/p/${slug}`);
     }
-  }, [authLoading, loading, potluck, user, slug, router]);
+  }, [authLoading, loading, potluck, user, slug, router, cohosts]);
 
   const copyLink = () => {
     const url = `${window.location.origin}/p/${slug}`;
@@ -278,6 +301,77 @@ export default function ManagePotluckPage() {
     }
   };
 
+  const sendCohostInvites = async () => {
+    const raw = cohostEmail.trim();
+    if (!raw) return;
+
+    const emails = raw
+      .split(/[,;\s]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
+    if (emails.length === 0) {
+      toast.error("Please enter valid email addresses.");
+      return;
+    }
+
+    setSendingCohostInvites(true);
+    try {
+      const res = await fetch(`/api/potlucks/${slug}/cohosts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to send co-host invites.");
+        return;
+      }
+      const emailsSent = data.emailsSent || 0;
+      if (emailsSent > 0) {
+        toast.success(`${emailsSent} co-host invite email(s) sent!`);
+      } else {
+        toast.success(`${emails.length} co-host invite(s) created!`);
+      }
+      setCohostEmail("");
+      fetchData();
+    } catch {
+      toast.error("Failed to send co-host invites.");
+    } finally {
+      setSendingCohostInvites(false);
+    }
+  };
+
+  const removeCohost = async (cohostId: string) => {
+    try {
+      const res = await fetch(`/api/potlucks/${slug}/cohosts`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cohost_id: cohostId }),
+      });
+      if (!res.ok) throw new Error();
+      setCohosts((prev) => prev.filter((c) => c.id !== cohostId));
+      toast.success("Co-host removed.");
+    } catch {
+      toast.error("Failed to remove co-host.");
+    }
+  };
+
+  const removeCohostInvite = async (inviteId: string) => {
+    try {
+      const res = await fetch(`/api/potlucks/${slug}/cohosts`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invite_id: inviteId }),
+      });
+      if (!res.ok) throw new Error();
+      setCohostInvites((prev) => prev.filter((i) => i.id !== inviteId));
+      toast.success("Co-host invite removed.");
+    } catch {
+      toast.error("Failed to remove invite.");
+    }
+  };
+
   if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -393,6 +487,22 @@ export default function ManagePotluckPage() {
           {invites.length > 0 && (
             <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
               {invites.length}
+            </Badge>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("cohosts")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === "cohosts"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <UserPlus className="inline mr-1.5 h-4 w-4" />
+          Co-Hosts
+          {cohosts.length > 0 && (
+            <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
+              {cohosts.length}
             </Badge>
           )}
         </button>
@@ -761,6 +871,143 @@ export default function ManagePotluckPage() {
                   <strong>Invite Only</strong> if you want to restrict access to
                   only invited guests.
                 </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {activeTab === "cohosts" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Invite Co-Hosts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-3">
+                Co-hosts can manage everything except deleting this potluck.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="email@example.com"
+                  value={cohostEmail}
+                  onChange={(e) => setCohostEmail(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") sendCohostInvites(); }}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={sendCohostInvites}
+                  disabled={sendingCohostInvites || !cohostEmail.trim()}
+                >
+                  {sendingCohostInvites ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1.5 h-4 w-4" />
+                  )}
+                  Invite
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Separate multiple emails with commas, semicolons, or spaces.
+              </p>
+            </CardContent>
+          </Card>
+
+          {cohosts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Current Co-Hosts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {cohosts.map((cohost) => (
+                    <div
+                      key={cohost.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={cohost.profile?.avatar_url || undefined} />
+                        <AvatarFallback className="text-xs bg-warm-green text-white">
+                          {cohost.profile?.display_name?.charAt(0).toUpperCase() || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {cohost.profile?.display_name || "Unknown"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => removeCohost(cohost.id)}
+                        title="Remove co-host"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {cohostInvites.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Mail className="h-5 w-5" />
+                    Pending Co-Host Invites
+                  </span>
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {cohostInvites.filter((i) => i.accepted).length}/{cohostInvites.length} accepted
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {cohostInvites.map((invite) => (
+                    <div
+                      key={invite.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {invite.email}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {invite.accepted ? (
+                            <span className="flex items-center gap-1 text-xs text-green-600">
+                              <Check className="h-3 w-3" />
+                              Accepted
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => removeCohostInvite(invite.id)}
+                        title="Remove invite"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}

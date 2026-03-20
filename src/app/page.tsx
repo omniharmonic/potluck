@@ -32,6 +32,7 @@ export default async function HomePage({
     if (user) {
       isLoggedIn = true;
 
+      // Potlucks the user hosts directly
       const { data: hosted } = await supabase
         .from("potlucks")
         .select("*, needs(quantity, claimed_quantity)")
@@ -40,6 +41,30 @@ export default async function HomePage({
         .order("event_date", { ascending: true });
 
       hostedPotlucks = hosted || [];
+
+      // Potlucks the user co-hosts
+      const { data: cohostRows } = await supabase
+        .from("cohosts")
+        .select("potluck_id")
+        .eq("profile_id", user.id);
+
+      if (cohostRows && cohostRows.length > 0) {
+        const cohostIds = cohostRows.map((c: any) => c.potluck_id);
+        const { data: cohosted } = await supabase
+          .from("potlucks")
+          .select("*, needs(quantity, claimed_quantity)")
+          .in("id", cohostIds)
+          .eq("status", "active")
+          .order("event_date", { ascending: true });
+
+        if (cohosted) {
+          const existingIds = new Set(hostedPotlucks.map((p: any) => p.id));
+          hostedPotlucks = [
+            ...hostedPotlucks,
+            ...cohosted.filter((p: any) => !existingIds.has(p.id)),
+          ];
+        }
+      }
 
       const { data: claims } = await supabase
         .from("claims")

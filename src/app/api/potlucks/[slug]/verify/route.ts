@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { isHostOrCohost } from "@/lib/auth-helpers";
 import { z } from "zod";
 
 const VerifySchema = z.object({
@@ -31,7 +32,7 @@ export async function POST(
       .eq("slug", slug)
       .single();
 
-    if (!potluck || potluck.host_id !== user.id) {
+    if (!potluck || !(await isHostOrCohost(supabase, potluck.id, user.id))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

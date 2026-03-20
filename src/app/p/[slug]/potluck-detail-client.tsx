@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
-import type { Potluck, NeedWithClaims, Offer, Profile, RsvpWithProfile } from "@/types/database";
+import type { Potluck, NeedWithClaims, Offer, Profile, RsvpWithProfile, CohostWithProfile } from "@/types/database";
 
 interface PotluckDetailClientProps {
   potluck: Potluck;
@@ -29,6 +29,7 @@ interface PotluckDetailClientProps {
   initialOffers: Offer[];
   initialRsvps: RsvpWithProfile[];
   host: Pick<Profile, "id" | "display_name" | "avatar_url"> | null;
+  cohosts: CohostWithProfile[];
 }
 
 export function PotluckDetailClient({
@@ -37,6 +38,7 @@ export function PotluckDetailClient({
   initialOffers,
   initialRsvps,
   host,
+  cohosts,
 }: PotluckDetailClientProps) {
   const { user } = useAuth();
   const { needs, refetchNeeds } = useRealtimeClaims(potluck.id, initialNeeds);
@@ -45,7 +47,7 @@ export function PotluckDetailClient({
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const isHost = user?.id === potluck.host_id;
+  const isHost = user?.id === potluck.host_id || cohosts.some((c) => c.profile_id === user?.id);
 
   const shareLink = () => {
     const url = window.location.href;
@@ -185,16 +187,32 @@ export function PotluckDetailClient({
 
         {host && (
           <div className="flex items-center gap-2 text-sm">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src={host.avatar_url || undefined} />
-              <AvatarFallback className="text-xs bg-warm-green text-white">
-                {host.display_name?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <div className="flex -space-x-1">
+              <Avatar className="h-6 w-6 ring-2 ring-background">
+                <AvatarImage src={host.avatar_url || undefined} />
+                <AvatarFallback className="text-xs bg-warm-green text-white">
+                  {host.display_name?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {cohosts.map((cohost) => (
+                <Avatar key={cohost.id} className="h-6 w-6 ring-2 ring-background">
+                  <AvatarImage src={cohost.profile?.avatar_url || undefined} />
+                  <AvatarFallback className="text-xs bg-warm-green text-white">
+                    {cohost.profile?.display_name?.charAt(0).toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            </div>
             <span className="text-muted-foreground">
               Hosted by{" "}
               <span className="font-medium text-foreground">
                 {host.display_name}
+                {cohosts.length > 0 && (
+                  <>
+                    {" & "}
+                    {cohosts.map((c) => c.profile?.display_name).join(", ")}
+                  </>
+                )}
               </span>
             </span>
           </div>

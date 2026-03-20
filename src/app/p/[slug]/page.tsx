@@ -59,6 +59,7 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
   let offers: any[] = [];
   let rsvps: any[] = [];
   let host = null;
+  let cohosts: any[] = [];
 
   try {
     const supabase = await createClient();
@@ -100,7 +101,7 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
     if (error || !potluckData) return notFound();
     potluck = potluckData;
 
-    const [needsRes, offersRes, hostRes, rsvpsRes] = await Promise.all([
+    const [needsRes, offersRes, hostRes, rsvpsRes, cohostsRes] = await Promise.all([
       supabase
         .from("needs")
         .select("*, claims(*, profile:profiles(display_name, avatar_url))")
@@ -121,12 +122,17 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
         .select("*, profile:profiles(display_name, avatar_url)")
         .eq("potluck_id", potluck.id)
         .order("created_at"),
+      supabase
+        .from("cohosts")
+        .select("*, profile:profiles(id, display_name, avatar_url)")
+        .eq("potluck_id", potluck.id),
     ]);
 
     needs = needsRes.data || [];
     offers = offersRes.data || [];
     host = hostRes.data;
     rsvps = rsvpsRes.data || [];
+    cohosts = cohostsRes.data || [];
   } catch {
     return notFound();
   }
@@ -138,6 +144,7 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
       initialOffers={offers}
       initialRsvps={rsvps}
       host={host}
+      cohosts={cohosts}
     />
   );
 }

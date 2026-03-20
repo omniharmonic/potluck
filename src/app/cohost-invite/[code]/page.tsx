@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { CohostInviteClient } from "./cohost-invite-client";
 
 interface PageProps {
@@ -10,10 +10,10 @@ export default async function CohostInvitePage({ params }: PageProps) {
   const { code } = await params;
 
   try {
-    const serviceClient = await createServiceClient();
+    const adminClient = createAdminClient();
 
     // Look up the invite with potluck and host details (bypasses RLS)
-    const { data: invite, error } = await serviceClient
+    const { data: invite, error } = await adminClient
       .from("cohost_invites")
       .select("*, potlucks(slug, title, event_date, location, host_id)")
       .eq("code", code)
@@ -24,7 +24,7 @@ export default async function CohostInvitePage({ params }: PageProps) {
     const potluck = invite.potlucks as any;
 
     // Get host name
-    const { data: hostProfile } = await serviceClient
+    const { data: hostProfile } = await adminClient
       .from("profiles")
       .select("display_name")
       .eq("id", potluck.host_id)
@@ -39,7 +39,7 @@ export default async function CohostInvitePage({ params }: PageProps) {
     // Check if already a co-host (only if authenticated)
     let alreadyCohost = false;
     if (user) {
-      const { data: existing } = await serviceClient
+      const { data: existing } = await adminClient
         .from("cohosts")
         .select("id")
         .eq("potluck_id", invite.potluck_id)

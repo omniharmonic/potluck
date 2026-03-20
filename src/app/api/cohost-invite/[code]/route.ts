@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export async function POST(
   _request: Request,
@@ -18,9 +18,9 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Look up the invite (service client bypasses RLS)
-    const serviceClient = await createServiceClient();
-    const { data: invite, error: inviteError } = await serviceClient
+    // Admin client truly bypasses RLS (no cookie-based auth)
+    const adminClient = createAdminClient();
+    const { data: invite, error: inviteError } = await adminClient
       .from("cohost_invites")
       .select("*, potlucks(slug, host_id)")
       .eq("code", code)
@@ -43,7 +43,7 @@ export async function POST(
 
     // Check if user is already the host
     if (potluck.host_id === user.id) {
-      await serviceClient
+      await adminClient
         .from("cohost_invites")
         .update({ accepted: true })
         .eq("id", invite.id);
@@ -51,7 +51,7 @@ export async function POST(
     }
 
     // Check if already a co-host (maybeSingle returns null for 0 rows, no error)
-    const { data: existing } = await serviceClient
+    const { data: existing } = await adminClient
       .from("cohosts")
       .select("id")
       .eq("potluck_id", invite.potluck_id)
@@ -59,7 +59,7 @@ export async function POST(
       .maybeSingle();
 
     if (existing) {
-      await serviceClient
+      await adminClient
         .from("cohost_invites")
         .update({ accepted: true })
         .eq("id", invite.id);
@@ -67,7 +67,7 @@ export async function POST(
     }
 
     // Insert as co-host and mark invite accepted
-    const { error: insertError } = await serviceClient
+    const { error: insertError } = await adminClient
       .from("cohosts")
       .insert({ potluck_id: invite.potluck_id, profile_id: user.id });
 
@@ -79,7 +79,7 @@ export async function POST(
       );
     }
 
-    await serviceClient
+    await adminClient
       .from("cohost_invites")
       .update({ accepted: true })
       .eq("id", invite.id);

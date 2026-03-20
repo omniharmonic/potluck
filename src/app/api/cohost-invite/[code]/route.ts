@@ -20,17 +20,21 @@ export async function POST(
 
     // Look up the invite (service client bypasses RLS)
     const serviceClient = await createServiceClient();
-    const { data: invite, error } = await serviceClient
+    const { data: invite, error: inviteError } = await serviceClient
       .from("cohost_invites")
-      .select("*, potlucks(slug)")
+      .select("*, potlucks(slug, host_id)")
       .eq("code", code)
       .single();
 
-    if (error || !invite || !invite.potlucks) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    if (inviteError || !invite || !invite.potlucks) {
+      return NextResponse.json(
+        { error: "Invite not found", details: inviteError?.message },
+        { status: 404 }
+      );
     }
 
-    const potluckSlug = (invite.potlucks as any).slug;
+    const potluck = invite.potlucks as any;
+    const potluckSlug = potluck.slug;
 
     // Already accepted — just return success
     if (invite.accepted) {
@@ -38,14 +42,7 @@ export async function POST(
     }
 
     // Check if user is already the host
-    const { data: potluck } = await serviceClient
-      .from("potlucks")
-      .select("host_id")
-      .eq("id", invite.potluck_id)
-      .single();
-
-    if (potluck?.host_id === user.id) {
-      // Mark invite accepted but don't add to cohosts (already the host)
+    if (potluck.host_id === user.id) {
       await serviceClient
         .from("cohost_invites")
         .update({ accepted: true })
@@ -53,13 +50,13 @@ export async function POST(
       return NextResponse.json({ slug: potluckSlug, alreadyHost: true });
     }
 
-    // Check if already a co-host
+    // Check if already a co-host (maybeSingle returns null for 0 rows, no error)
     const { data: existing } = await serviceClient
       .from("cohosts")
       .select("id")
       .eq("potluck_id", invite.potluck_id)
       .eq("profile_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       await serviceClient
@@ -75,8 +72,9 @@ export async function POST(
       .insert({ potluck_id: invite.potluck_id, profile_id: user.id });
 
     if (insertError) {
+      console.error("Failed to insert co-host:", insertError);
       return NextResponse.json(
-        { error: "Failed to accept invite" },
+        { error: "Failed to accept invite", details: insertError.message },
         { status: 500 }
       );
     }
@@ -87,9 +85,10 @@ export async function POST(
       .eq("id", invite.id);
 
     return NextResponse.json({ slug: potluckSlug, accepted: true });
-  } catch {
+  } catch (err) {
+    console.error("Co-host invite acceptance error:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: String(err) },
       { status: 500 }
     );
   }

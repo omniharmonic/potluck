@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Calendar, MapPin, Loader2, CheckCircle } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
+import { toast } from "sonner";
 import Link from "next/link";
 
 interface CohostInviteClientProps {
@@ -47,6 +48,7 @@ export function CohostInviteClient({
       const res = await fetch(`/api/cohost-invite/${code}`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
+        toast.error(data.error || "Failed to accept invite.");
         setAccepting(false);
         return;
       }
@@ -56,6 +58,7 @@ export function CohostInviteClient({
         router.push(`/p/${data.slug || potluckSlug}/manage`);
       }, 800);
     } catch {
+      toast.error("Something went wrong. Please try again.");
       setAccepting(false);
     }
   };

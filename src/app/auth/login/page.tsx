@@ -47,6 +47,7 @@ function LoginForm() {
           password,
           options: {
             data: { display_name: displayName },
+            emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
           },
         });
         if (error) throw error;

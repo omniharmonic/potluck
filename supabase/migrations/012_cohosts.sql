@@ -2,7 +2,37 @@
 -- Co-hosts: allow multiple users to manage a single potluck
 -- ============================================================
 
--- A. Helper function (security definer avoids RLS recursion)
+-- A. Create tables FIRST (before the function that references them)
+
+-- cohosts table
+create table public.cohosts (
+  id uuid primary key default gen_random_uuid(),
+  potluck_id uuid not null references public.potlucks(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique(potluck_id, profile_id)
+);
+
+create index cohosts_potluck_id_idx on public.cohosts(potluck_id);
+create index cohosts_profile_id_idx on public.cohosts(profile_id);
+
+-- cohost_invites table
+create table public.cohost_invites (
+  id uuid primary key default gen_random_uuid(),
+  potluck_id uuid not null references public.potlucks(id) on delete cascade,
+  email text not null,
+  code text unique not null,
+  accepted boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique(potluck_id, email)
+);
+
+create index cohost_invites_potluck_id_idx on public.cohost_invites(potluck_id);
+create index cohost_invites_code_idx on public.cohost_invites(code);
+
+
+-- B. Helper function (security definer avoids RLS recursion)
+--    Must come AFTER table creation because LANGUAGE SQL validates at creation time
 create or replace function public.is_host_or_cohost(p_potluck_id uuid, p_user_id uuid)
 returns boolean
 language sql
@@ -16,17 +46,8 @@ as $$
   );
 $$;
 
--- B. cohosts table
-create table public.cohosts (
-  id uuid primary key default gen_random_uuid(),
-  potluck_id uuid not null references public.potlucks(id) on delete cascade,
-  profile_id uuid not null references public.profiles(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  unique(potluck_id, profile_id)
-);
 
-create index cohosts_potluck_id_idx on public.cohosts(potluck_id);
-create index cohosts_profile_id_idx on public.cohosts(profile_id);
+-- C. RLS for new tables
 
 alter table public.cohosts enable row level security;
 
@@ -43,20 +64,6 @@ create policy "Hosts, cohosts, or self can remove cohosts"
     public.is_host_or_cohost(potluck_id, auth.uid())
     or profile_id = auth.uid()
   );
-
--- C. cohost_invites table
-create table public.cohost_invites (
-  id uuid primary key default gen_random_uuid(),
-  potluck_id uuid not null references public.potlucks(id) on delete cascade,
-  email text not null,
-  code text unique not null,
-  accepted boolean not null default false,
-  created_at timestamptz not null default now(),
-  unique(potluck_id, email)
-);
-
-create index cohost_invites_potluck_id_idx on public.cohost_invites(potluck_id);
-create index cohost_invites_code_idx on public.cohost_invites(code);
 
 alter table public.cohost_invites enable row level security;
 

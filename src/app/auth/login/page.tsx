@@ -34,6 +34,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
+  const authError = searchParams.get("error");
   const supabase = createClient();
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -51,6 +52,16 @@ function LoginForm() {
           },
         });
         if (error) throw error;
+        // Supabase returns a fake success with empty identities when the
+        // email is already registered (privacy measure). Detect this so
+        // the user isn't left waiting for an email that never arrives.
+        if (data.user && data.user.identities?.length === 0) {
+          toast.error(
+            "An account with this email already exists. Try signing in instead."
+          );
+          setIsSignUp(false);
+          return;
+        }
         if (data.session) {
           // Email confirmation disabled — user is signed in immediately
           window.location.href = redirect;
@@ -99,6 +110,13 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {authError && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {authError === "auth_callback_failed"
+                ? "Sign-in failed — your confirmation link may have expired. Please try again."
+                : "Something went wrong during sign-in. Please try again."}
+            </div>
+          )}
           <Button
             variant="outline"
             className="w-full"

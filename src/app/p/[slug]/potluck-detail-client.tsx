@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRealtimeClaims, useRealtimeOffers, useRealtimeRsvps } from "@/hooks/use-realtime-claims";
 import { NeedsList } from "@/components/needs-list";
 import { OfferSection } from "@/components/offer-form";
@@ -18,18 +18,20 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar, CalendarPlus, MapPin, Globe, Link as LinkIcon, Lock, Navigation, ExternalLink, Download, Share2, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { formatDateTime } from "@/lib/utils";
+import { getGuestToken } from "@/lib/guest-tokens";
+import { formatDateTime, parseEventDate } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
-import type { Potluck, NeedWithClaims, Offer, Profile, RsvpWithProfile, CohostWithProfile } from "@/types/database";
+import type { Potluck, NeedWithClaims, OfferWithProfile, Profile, RsvpWithProfile, CohostWithProfile } from "@/types/database";
 
 interface PotluckDetailClientProps {
   potluck: Potluck;
   initialNeeds: NeedWithClaims[];
-  initialOffers: Offer[];
+  initialOffers: OfferWithProfile[];
   initialRsvps: RsvpWithProfile[];
   host: Pick<Profile, "id" | "display_name" | "avatar_url"> | null;
   cohosts: CohostWithProfile[];
+  inviteCode?: string;
 }
 
 export function PotluckDetailClient({
@@ -39,8 +41,17 @@ export function PotluckDetailClient({
   initialRsvps,
   host,
   cohosts,
+  inviteCode,
 }: PotluckDetailClientProps) {
   const { user } = useAuth();
+
+  // When an invited, logged-in user lands here via their invite link, record
+  // acceptance (email-bound, server-side) so they keep access on later visits.
+  useEffect(() => {
+    if (inviteCode && user) {
+      fetch(`/api/invite/${inviteCode}/accept`, { method: "POST" }).catch(() => {});
+    }
+  }, [inviteCode, user]);
   const { needs, refetchNeeds } = useRealtimeClaims(potluck.id, initialNeeds);
   const { offers, refetchOffers } = useRealtimeOffers(potluck.id, initialOffers);
   const { rsvps, refetchRsvps } = useRealtimeRsvps(potluck.id, initialRsvps);
@@ -48,6 +59,22 @@ export function PotluckDetailClient({
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const isHost = user?.id === potluck.host_id || cohosts.some((c) => c.profile_id === user?.id);
+
+  // "What you've committed to bring" — the current user's (or guest's) claims
+  // and offers, identified by profile match or held capability token.
+  const myClaims = needs.flatMap((n) =>
+    n.claims
+      .filter((c) =>
+        user ? c.profile_id === user.id : !!getGuestToken("claim", c.id)
+      )
+      .map((c) => ({ id: c.id, emoji: n.emoji, name: n.name }))
+  );
+  const myOffers = offers
+    .filter((o) =>
+      user ? o.profile_id === user.id : !!getGuestToken("offer", o.id)
+    )
+    .map((o) => ({ id: o.id, emoji: o.emoji, name: o.name }));
+  const myContributions = [...myClaims, ...myOffers];
 
   const shareLink = () => {
     const url = window.location.href;
@@ -68,8 +95,7 @@ export function PotluckDetailClient({
     /\b(st|ave|blvd|rd|dr|ln|ct|way|pl|pk|hwy|street|avenue|road|drive|lane|court|plaza|park)\b/i.test(potluck.location);
 
   // Calendar helpers — parse as local wall clock time
-  const cleanedDate = potluck.event_date.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "");
-  const eventStart = new Date(cleanedDate);
+  const eventStart = parseEventDate(potluck.event_date);
   const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000); // 2-hour default
 
   // Format as local time for calendar (YYYYMMDDTHHMMSS without Z suffix)
@@ -225,12 +251,34 @@ export function PotluckDetailClient({
       <Card>
         <CardContent className="p-4 sm:p-6">
           <RsvpSection
-            potluckId={potluck.id}
+            potluckSlug={potluck.slug}
             rsvps={rsvps}
             onRsvpChanged={() => refetchRsvps()}
           />
         </CardContent>
       </Card>
+
+      {/* Personal summary — what you've committed to bring */}
+      {myContributions.length > 0 && (
+        <Card className="border-warm-green/40 bg-warm-green/5">
+          <CardContent className="p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold mb-3 flex items-center gap-2">
+              <span aria-hidden="true">✅</span> You&apos;re bringing
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {myContributions.map((c) => (
+                <li
+                  key={c.id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-warm-green/40 bg-background px-3 py-1 text-sm"
+                >
+                  <span aria-hidden="true">{c.emoji}</span>
+                  {c.name}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Needs */}
       <Card>
@@ -238,7 +286,7 @@ export function PotluckDetailClient({
           <h2 className="text-lg sm:text-xl font-semibold mb-4">What&apos;s Needed</h2>
           <NeedsList
             needs={needs}
-            potluckId={potluck.id}
+            potluckSlug={potluck.slug}
             onClaimed={() => refetchNeeds()}
           />
         </CardContent>
@@ -249,7 +297,7 @@ export function PotluckDetailClient({
         <Card>
           <CardContent className="p-4 sm:p-6">
             <OfferSection
-              potluckId={potluck.id}
+              potluckSlug={potluck.slug}
               offers={offers}
               onOfferAdded={() => refetchOffers()}
             />

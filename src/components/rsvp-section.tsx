@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,6 +8,7 @@ import {
   GuestIdentityModal,
   getStoredGuestIdentity,
 } from "@/components/guest-identity-modal";
+import { getGuestToken, storeGuestToken, removeGuestToken } from "@/lib/guest-tokens";
 import {
   Dialog,
   DialogContent,
@@ -22,47 +22,51 @@ import type { RsvpWithProfile } from "@/types/database";
 const AVATAR_DISPLAY_LIMIT = 8;
 
 interface RsvpSectionProps {
-  potluckId: string;
+  potluckSlug: string;
   rsvps: RsvpWithProfile[];
   onRsvpChanged?: () => void;
 }
 
 export function RsvpSection({
-  potluckId,
+  potluckSlug,
   rsvps,
   onRsvpChanged,
 }: RsvpSectionProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
-  const supabase = createClient();
 
+  // Ownership: authenticated profile match, or (as a guest) holding the
+  // capability token for that RSVP. Token replaces the spoofable name match.
   const userRsvp = useMemo(() => {
     if (user) return rsvps.find((r) => r.profile_id === user.id);
-    const stored = getStoredGuestIdentity();
-    if (stored) return rsvps.find((r) => r.guest_name === stored.name);
-    return undefined;
+    return rsvps.find((r) => !!getGuestToken("rsvp", r.id));
   }, [rsvps, user]);
 
   const handleRsvp = async (guestName?: string, guestEmail?: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase.from("rsvps").insert({
-        potluck_id: potluckId,
-        profile_id: user?.id || null,
-        guest_name: guestName || null,
-        guest_email: guestEmail || null,
+      const res = await fetch(`/api/potlucks/${potluckSlug}/rsvps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guest_name: guestName,
+          guest_email: guestEmail || undefined,
+        }),
       });
-
-      if (error) {
-        if (error.code === "23505") {
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.duplicate) {
           toast.info("You've already RSVP'd!");
         } else {
-          throw error;
+          toast.error(data.error || "Failed to RSVP. Please try again.");
         }
-      } else {
-        toast.success("You're going! 🎉");
+        return;
       }
+      if (data.guest_token && data.rsvp_id) {
+        storeGuestToken("rsvp", data.rsvp_id, data.guest_token);
+      }
+      toast.success("You're going! 🎉");
       onRsvpChanged?.();
     } catch {
       toast.error("Failed to RSVP. Please try again.");
@@ -75,12 +79,20 @@ export function RsvpSection({
     if (!userRsvp) return;
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("rsvps")
-        .delete()
-        .eq("id", userRsvp.id);
-
-      if (error) throw error;
+      const res = await fetch(`/api/potlucks/${potluckSlug}/rsvps`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rsvp_id: userRsvp.id,
+          guest_token: getGuestToken("rsvp", userRsvp.id),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Failed to cancel RSVP.");
+        return;
+      }
+      removeGuestToken("rsvp", userRsvp.id);
       toast.success("RSVP cancelled.");
       onRsvpChanged?.();
     } catch {

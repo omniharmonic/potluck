@@ -399,6 +399,35 @@ export interface Database {
         Args: { p_potluck_id: string; p_user_id: string };
         Returns: boolean;
       };
+      can_view_potluck: {
+        Args: { p_id: string };
+        Returns: boolean;
+      };
+      can_manage_potluck: {
+        Args: { p_id: string };
+        Returns: boolean;
+      };
+      create_claim: {
+        Args: {
+          p_need_id: string;
+          p_potluck_id: string;
+          p_profile_id: string | null;
+          p_guest_name: string | null;
+          p_guest_email: string | null;
+          p_guest_token: string | null;
+          p_quantity: number;
+        };
+        Returns: Database["public"]["Tables"]["claims"]["Row"];
+      };
+      set_points: {
+        Args: {
+          p_profile: string;
+          p_source_type: string;
+          p_source_id: string;
+          p_points: number;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       access_level: AccessLevel;
@@ -433,6 +462,9 @@ export type ClaimWithProfile = Claim & {
 };
 export type NeedWithClaims = Need & { claims: ClaimWithProfile[] };
 export type RsvpWithProfile = Rsvp & {
+  profile?: Pick<Profile, "display_name" | "avatar_url"> | null;
+};
+export type OfferWithProfile = Offer & {
   profile?: Pick<Profile, "display_name" | "avatar_url"> | null;
 };
 export type PotluckWithDetails = Potluck & {

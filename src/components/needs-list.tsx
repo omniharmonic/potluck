@@ -8,14 +8,14 @@ import { getClaimProgress } from "@/lib/utils";
 
 interface NeedsListProps {
   needs: NeedWithClaims[];
-  potluckId: string;
+  potluckSlug: string;
   showClaimButton?: boolean;
   onClaimed?: () => void;
 }
 
 export function NeedsList({
   needs,
-  potluckId,
+  potluckSlug,
   showClaimButton = true,
   onClaimed,
 }: NeedsListProps) {
@@ -67,7 +67,10 @@ export function NeedsList({
                     <Badge key={claim.id} variant="outline" className="text-xs">
                       {claim.profile?.display_name || claim.guest_name || "Guest"}
                       {claim.verified && (
-                        <span className="ml-1 text-warm-green">✓</span>
+                        <span className="ml-1 text-warm-green">
+                          <span aria-hidden="true">✓</span>
+                          <span className="sr-only">verified</span>
+                        </span>
                       )}
                     </Badge>
                   ))}
@@ -77,7 +80,7 @@ export function NeedsList({
             {showClaimButton && (
               <ClaimButton
                 need={need}
-                potluckId={potluckId}
+                potluckSlug={potluckSlug}
                 onClaimed={onClaimed}
               />
             )}

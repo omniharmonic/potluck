@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { CLAIM_COLUMNS } from "@/lib/db-columns";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ import type { Potluck, Claim } from "@/types/database";
 import Link from "next/link";
 
 export default function ProfilePage() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const router = useRouter();
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -44,7 +45,8 @@ export default function ProfilePage() {
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-
+    setLoadingData(true);
+    try {
     const [hostedRes, claimsRes, cohostRes] = await Promise.all([
       supabase
         .from("potlucks")
@@ -53,7 +55,7 @@ export default function ProfilePage() {
         .order("event_date", { ascending: false }),
       supabase
         .from("claims")
-        .select("*, potlucks(*)")
+        .select(`${CLAIM_COLUMNS}, potlucks(*)`)
         .eq("profile_id", user.id)
         .order("created_at", { ascending: false }),
       supabase
@@ -96,7 +98,11 @@ export default function ProfilePage() {
       }
     });
     setParticipatedPotlucks(Array.from(potluckMap.values()));
-    setLoadingData(false);
+    } catch {
+      // Surface nothing destructive; just stop the spinner so the page renders.
+    } finally {
+      setLoadingData(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -129,6 +135,7 @@ export default function ProfilePage() {
     } else {
       toast.success("Name updated!");
       setEditing(false);
+      await refreshProfile();
     }
     setSaving(false);
   };
@@ -165,6 +172,7 @@ export default function ProfilePage() {
 
       setAvatarUrl(data.url);
       toast.success("Profile picture updated!");
+      await refreshProfile();
     } catch {
       toast.error("Upload failed. Please try again.");
     } finally {
@@ -193,6 +201,7 @@ export default function ProfilePage() {
               type="button"
               onClick={() => avatarInputRef.current?.click()}
               disabled={uploadingAvatar}
+              aria-label="Change profile picture"
               className="relative group shrink-0"
             >
               <Avatar className="h-12 w-12 sm:h-16 sm:w-16">
@@ -222,6 +231,10 @@ export default function ProfilePage() {
                   <Input
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveName();
+                    }}
+                    aria-label="Display name"
                     className="max-w-xs"
                     autoFocus
                   />
@@ -229,8 +242,9 @@ export default function ProfilePage() {
                     size="icon"
                     onClick={handleSaveName}
                     disabled={saving}
+                    aria-label="Save name"
                   >
-                    <Check className="h-4 w-4" />
+                    <Check className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               ) : (
@@ -243,8 +257,9 @@ export default function ProfilePage() {
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => setEditing(true)}
+                    aria-label="Edit display name"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </div>
               )}

@@ -4,6 +4,7 @@ import { isHostOrCohost } from "@/lib/auth-helpers";
 import { nanoid } from "nanoid";
 import { Resend } from "resend";
 import { z } from "zod";
+import { escapeHtml, parseEventDate } from "@/lib/utils";
 
 const InviteSchema = z.object({
   emails: z.array(z.string().email()),
@@ -21,10 +22,15 @@ function buildInviteEmail(params: {
   description: string;
   inviteLink: string;
 }) {
-  const { potluckTitle, hostName, eventDate, location, description, inviteLink } = params;
+  const { inviteLink } = params;
+  // Escape all host-controlled values before interpolating into the HTML body
+  // so a malicious title/description/name can't inject markup into the email.
+  const potluckTitle = escapeHtml(params.potluckTitle);
+  const hostName = escapeHtml(params.hostName);
+  const location = escapeHtml(params.location);
+  const description = escapeHtml(params.description);
 
-  const cleaned = eventDate.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "");
-  const dateStr = new Date(cleaned).toLocaleDateString("en-US", {
+  const dateStr = parseEventDate(params.eventDate).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -94,11 +100,11 @@ function buildInviteEmail(params: {
   const text = [
     `You're invited to a potluck!`,
     ``,
-    `${hostName} has invited you to: ${potluckTitle}`,
+    `${params.hostName} has invited you to: ${params.potluckTitle}`,
     ``,
     `Date: ${dateStr}`,
-    `Location: ${location}`,
-    description ? `\n${description}` : "",
+    `Location: ${params.location}`,
+    params.description ? `\n${params.description}` : "",
     ``,
     `View the potluck and RSVP here:`,
     inviteLink,

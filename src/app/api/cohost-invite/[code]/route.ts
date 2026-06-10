@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function POST(
   _request: Request,
@@ -19,7 +19,7 @@ export async function POST(
     }
 
     // Admin client truly bypasses RLS (no cookie-based auth)
-    const adminClient = createAdminClient();
+    const adminClient = createServiceRoleClient();
     const { data: invite, error: inviteError } = await adminClient
       .from("cohost_invites")
       .select("*, potlucks(slug, host_id)")

@@ -36,8 +36,8 @@ export function Navbar() {
                     </Link>
                   </Button>
                   <Button asChild size="icon" variant="outline" className="sm:hidden h-9 w-9">
-                    <Link href="/create">
-                      <Plus className="h-4 w-4" />
+                    <Link href="/create" aria-label="New potluck">
+                      <Plus className="h-4 w-4" aria-hidden="true" />
                     </Link>
                   </Button>
 
@@ -45,6 +45,7 @@ export function Navbar() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
+                        aria-label="Account menu"
                         className="relative h-9 w-9 rounded-full"
                       >
                         <Avatar className="h-9 w-9">
@@ -83,8 +84,11 @@ export function Navbar() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={async () => {
-                          await signOut();
-                          window.location.href = "/";
+                          try {
+                            await signOut();
+                          } finally {
+                            window.location.href = "/";
+                          }
                         }}
                         className="cursor-pointer text-destructive"
                       >

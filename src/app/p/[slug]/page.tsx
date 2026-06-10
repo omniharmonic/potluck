@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { NEEDS_WITH_CLAIMS_SELECT, OFFERS_SELECT, RSVPS_SELECT } from "@/lib/db-columns";
+import { parseEventDate } from "@/lib/utils";
 import { PotluckDetailClient } from "./potluck-detail-client";
 import type { Metadata } from "next";
 
@@ -20,8 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!potluck) return { title: "Potluck Not Found" };
 
-    const cleaned = potluck.event_date.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "");
-    const date = new Date(cleaned).toLocaleDateString("en-US", {
+    const date = parseEventDate(potluck.event_date).toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -77,7 +78,7 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
     error = result.error;
 
     if ((error || !potluckData) && inviteCode) {
-      const serviceClient = await createServiceClient();
+      const serviceClient = createServiceRoleClient();
       const inviteCheck = await serviceClient
         .from("invites")
         .select("potluck_id")
@@ -104,12 +105,12 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
     const [needsRes, offersRes, hostRes, rsvpsRes, cohostsRes] = await Promise.all([
       supabase
         .from("needs")
-        .select("*, claims(*, profile:profiles(display_name, avatar_url))")
+        .select(NEEDS_WITH_CLAIMS_SELECT)
         .eq("potluck_id", potluck.id)
         .order("sort_order"),
       supabase
         .from("offers")
-        .select("*, profile:profiles(display_name, avatar_url)")
+        .select(OFFERS_SELECT)
         .eq("potluck_id", potluck.id)
         .order("created_at"),
       supabase
@@ -119,7 +120,7 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
         .single(),
       supabase
         .from("rsvps")
-        .select("*, profile:profiles(display_name, avatar_url)")
+        .select(RSVPS_SELECT)
         .eq("potluck_id", potluck.id)
         .order("created_at"),
       supabase
@@ -145,6 +146,7 @@ export default async function PotluckPage({ params, searchParams }: PageProps) {
       initialRsvps={rsvps}
       host={host}
       cohosts={cohosts}
+      inviteCode={inviteCode}
     />
   );
 }

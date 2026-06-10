@@ -2,7 +2,25 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Offer, NeedWithClaims, RsvpWithProfile } from "@/types/database";
+import { NEEDS_WITH_CLAIMS_SELECT, OFFERS_SELECT, RSVPS_SELECT } from "@/lib/db-columns";
+import type { OfferWithProfile, NeedWithClaims, RsvpWithProfile } from "@/types/database";
+
+// Coalesce bursts of realtime events into a single refetch. On a busy potluck a
+// flurry of claim/offer changes would otherwise trigger one full refetch each
+// (the "refetch storm"); this collapses them to one per ~250ms window.
+function useDebouncedCallback(fn: () => void, delay = 250) {
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trigger = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => fnRef.current(), delay);
+  }, [delay]);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+  return trigger;
+}
 
 export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaims[]) {
   const [needs, setNeeds] = useState<NeedWithClaims[]>(initialNeeds);
@@ -11,7 +29,7 @@ export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaim
   const refetchNeeds = useCallback(async () => {
     const { data: needsData } = await supabaseRef.current
       .from("needs")
-      .select("*, claims(*, profile:profiles(display_name, avatar_url))")
+      .select(NEEDS_WITH_CLAIMS_SELECT)
       .eq("potluck_id", potluckId)
       .order("sort_order");
 
@@ -19,6 +37,8 @@ export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaim
       setNeeds(needsData as NeedWithClaims[]);
     }
   }, [potluckId]);
+
+  const debouncedRefetch = useDebouncedCallback(refetchNeeds);
 
   useEffect(() => {
     setNeeds(initialNeeds);
@@ -36,9 +56,7 @@ export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaim
           table: "claims",
           filter: `potluck_id=eq.${potluckId}`,
         },
-        () => {
-          refetchNeeds();
-        }
+        debouncedRefetch
       )
       .on(
         "postgres_changes",
@@ -48,35 +66,35 @@ export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaim
           table: "needs",
           filter: `potluck_id=eq.${potluckId}`,
         },
-        () => {
-          refetchNeeds();
-        }
+        debouncedRefetch
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [potluckId, refetchNeeds]);
+  }, [potluckId, debouncedRefetch]);
 
   return { needs, refetchNeeds };
 }
 
-export function useRealtimeOffers(potluckId: string, initialOffers: Offer[]) {
-  const [offers, setOffers] = useState<Offer[]>(initialOffers);
+export function useRealtimeOffers(potluckId: string, initialOffers: OfferWithProfile[]) {
+  const [offers, setOffers] = useState<OfferWithProfile[]>(initialOffers);
   const supabaseRef = useRef(createClient());
 
   const refetchOffers = useCallback(async () => {
     const { data } = await supabaseRef.current
       .from("offers")
-      .select("*, profile:profiles(display_name, avatar_url)")
+      .select(OFFERS_SELECT)
       .eq("potluck_id", potluckId)
       .order("created_at");
 
     if (data) {
-      setOffers(data);
+      setOffers(data as OfferWithProfile[]);
     }
   }, [potluckId]);
+
+  const debouncedRefetch = useDebouncedCallback(refetchOffers);
 
   useEffect(() => {
     setOffers(initialOffers);
@@ -94,16 +112,14 @@ export function useRealtimeOffers(potluckId: string, initialOffers: Offer[]) {
           table: "offers",
           filter: `potluck_id=eq.${potluckId}`,
         },
-        () => {
-          refetchOffers();
-        }
+        debouncedRefetch
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [potluckId, refetchOffers]);
+  }, [potluckId, debouncedRefetch]);
 
   return { offers, refetchOffers };
 }
@@ -115,7 +131,7 @@ export function useRealtimeRsvps(potluckId: string, initialRsvps: RsvpWithProfil
   const refetchRsvps = useCallback(async () => {
     const { data } = await supabaseRef.current
       .from("rsvps")
-      .select("*, profile:profiles(display_name, avatar_url)")
+      .select(RSVPS_SELECT)
       .eq("potluck_id", potluckId)
       .order("created_at");
 
@@ -123,6 +139,8 @@ export function useRealtimeRsvps(potluckId: string, initialRsvps: RsvpWithProfil
       setRsvps(data as RsvpWithProfile[]);
     }
   }, [potluckId]);
+
+  const debouncedRefetch = useDebouncedCallback(refetchRsvps);
 
   useEffect(() => {
     setRsvps(initialRsvps);
@@ -140,16 +158,14 @@ export function useRealtimeRsvps(potluckId: string, initialRsvps: RsvpWithProfil
           table: "rsvps",
           filter: `potluck_id=eq.${potluckId}`,
         },
-        () => {
-          refetchRsvps();
-        }
+        debouncedRefetch
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [potluckId, refetchRsvps]);
+  }, [potluckId, debouncedRefetch]);
 
   return { rsvps, refetchRsvps };
 }

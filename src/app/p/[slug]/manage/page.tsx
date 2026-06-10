@@ -5,7 +5,6 @@ import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeClaims, useRealtimeOffers } from "@/hooks/use-realtime-claims";
-import { NeedsList } from "@/components/needs-list";
 import { VerificationPanel } from "@/components/verification-panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +36,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatDateTime, getClaimProgress } from "@/lib/utils";
-import type { Potluck, NeedWithClaims, Offer, Invite, CohostWithProfile, CohostInvite } from "@/types/database";
+import { NEEDS_WITH_CLAIMS_SELECT, OFFERS_SELECT } from "@/lib/db-columns";
+import type { Potluck, NeedWithClaims, OfferWithProfile, Invite, CohostWithProfile, CohostInvite } from "@/types/database";
 
 export default function ManagePotluckPage() {
   const params = useParams();
@@ -49,7 +49,7 @@ export default function ManagePotluckPage() {
 
   const [potluck, setPotluck] = useState<Potluck | null>(null);
   const [rawNeeds, setRawNeeds] = useState<NeedWithClaims[]>([]);
-  const [rawOffers, setRawOffers] = useState<Offer[]>([]);
+  const [rawOffers, setRawOffers] = useState<OfferWithProfile[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "verify" | "invites" | "cohosts">("overview");
@@ -90,12 +90,12 @@ export default function ManagePotluckPage() {
     const [needsRes, offersRes, invitesRes, cohostsRes, cohostInvitesRes] = await Promise.all([
       supabase
         .from("needs")
-        .select("*, claims(*, profile:profiles(display_name, avatar_url))")
+        .select(NEEDS_WITH_CLAIMS_SELECT)
         .eq("potluck_id", potluckData.id)
         .order("sort_order"),
       supabase
         .from("offers")
-        .select("*, profile:profiles(display_name, avatar_url)")
+        .select(OFFERS_SELECT)
         .eq("potluck_id", potluckData.id)
         .order("created_at"),
       supabase
@@ -198,6 +198,26 @@ export default function ManagePotluckPage() {
       toast.error("Failed to save changes.");
     } finally {
       setSavingDetails(false);
+    }
+  };
+
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const setStatus = async (status: "active" | "completed") => {
+    if (!potluck) return;
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/potlucks/${slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(status === "completed" ? "Marked as completed." : "Reopened.");
+      fetchData();
+    } catch {
+      toast.error("Failed to update status.");
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -451,38 +471,50 @@ export default function ManagePotluckPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      <div role="tablist" aria-label="Manage potluck" className="flex gap-2 border-b overflow-x-auto">
         <button
+          role="tab"
+          id="tab-overview"
+          aria-selected={activeTab === "overview"}
+          aria-controls="panel-overview"
           onClick={() => setActiveTab("overview")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "overview"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Users className="inline mr-1.5 h-4 w-4" />
+          <Users className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Overview
         </button>
         <button
+          role="tab"
+          id="tab-verify"
+          aria-selected={activeTab === "verify"}
+          aria-controls="panel-verify"
           onClick={() => setActiveTab("verify")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "verify"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <CheckCircle className="inline mr-1.5 h-4 w-4" />
+          <CheckCircle className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Verify
         </button>
         <button
+          role="tab"
+          id="tab-invites"
+          aria-selected={activeTab === "invites"}
+          aria-controls="panel-invites"
           onClick={() => setActiveTab("invites")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "invites"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Mail className="inline mr-1.5 h-4 w-4" />
+          <Mail className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Invites
           {invites.length > 0 && (
             <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
@@ -491,14 +523,18 @@ export default function ManagePotluckPage() {
           )}
         </button>
         <button
+          role="tab"
+          id="tab-cohosts"
+          aria-selected={activeTab === "cohosts"}
+          aria-controls="panel-cohosts"
           onClick={() => setActiveTab("cohosts")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "cohosts"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <UserPlus className="inline mr-1.5 h-4 w-4" />
+          <UserPlus className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Co-Hosts
           {cohosts.length > 0 && (
             <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
@@ -509,7 +545,7 @@ export default function ManagePotluckPage() {
       </div>
 
       {activeTab === "overview" && (
-        <div className="space-y-6">
+        <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" className="space-y-6">
           {/* Event details */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -719,24 +755,62 @@ export default function ManagePotluckPage() {
       )}
 
       {activeTab === "verify" && (
-        <Card>
-          <CardContent className="p-4 sm:p-6">
-            <VerificationPanel
-              potluckSlug={slug}
-              needs={needs}
-              offers={offers}
-              pointsEnabled={potluck.points_enabled}
-              onVerified={() => {
-                refetchNeeds();
-                refetchOffers();
-              }}
-            />
-          </CardContent>
-        </Card>
+        <div role="tabpanel" id="panel-verify" aria-labelledby="tab-verify" className="space-y-4">
+          <Card>
+            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="font-medium text-sm flex items-center gap-2">
+                  Event status
+                  <Badge variant={potluck.status === "completed" ? "secondary" : "success"}>
+                    {potluck.status === "completed" ? "Completed" : "Active"}
+                  </Badge>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {potluck.status === "completed"
+                    ? "This potluck is marked completed and hidden from public feeds."
+                    : "Mark completed after the event to wrap up verification."}
+                </p>
+              </div>
+              {potluck.status === "completed" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={updatingStatus}
+                  onClick={() => setStatus("active")}
+                >
+                  Reopen
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={updatingStatus}
+                  onClick={() => setStatus("completed")}
+                >
+                  <CheckCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Mark as completed
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <VerificationPanel
+                potluckSlug={slug}
+                needs={needs}
+                offers={offers}
+                pointsEnabled={potluck.points_enabled}
+                onVerified={() => {
+                  refetchNeeds();
+                  refetchOffers();
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === "invites" && (
-        <div className="space-y-6">
+        <div role="tabpanel" id="panel-invites" aria-labelledby="tab-invites" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -878,7 +952,7 @@ export default function ManagePotluckPage() {
       )}
 
       {activeTab === "cohosts" && (
-        <div className="space-y-6">
+        <div role="tabpanel" id="panel-cohosts" aria-labelledby="tab-cohosts" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

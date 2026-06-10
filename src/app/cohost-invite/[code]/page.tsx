@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { CohostInviteClient } from "./cohost-invite-client";
 
 interface PageProps {
@@ -10,7 +10,7 @@ export default async function CohostInvitePage({ params }: PageProps) {
   const { code } = await params;
 
   try {
-    const adminClient = createAdminClient();
+    const adminClient = createServiceRoleClient();
 
     // Look up the invite with potluck and host details (bypasses RLS)
     const { data: invite, error } = await adminClient
@@ -44,7 +44,7 @@ export default async function CohostInvitePage({ params }: PageProps) {
         .select("id")
         .eq("potluck_id", invite.potluck_id)
         .eq("profile_id", user.id)
-        .single();
+        .maybeSingle();
       alreadyCohost = !!existing;
     }
 
@@ -56,7 +56,6 @@ export default async function CohostInvitePage({ params }: PageProps) {
         eventDate={potluck.event_date}
         location={potluck.location}
         hostName={hostProfile?.display_name || "Someone"}
-        inviteAccepted={invite.accepted}
         alreadyCohost={alreadyCohost}
         isAuthenticated={!!user}
       />

@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
+import { parseEventDate } from "@/lib/utils";
 
 export const runtime = "edge";
 export const alt = "Potluck";
@@ -34,8 +35,7 @@ export default async function OgImage({
       description = potluck.description || "";
       bannerUrl = potluck.banner_url;
       location = potluck.location || "";
-      const cleaned = potluck.event_date.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "");
-      date = new Date(cleaned).toLocaleDateString("en-US", {
+      date = parseEventDate(potluck.event_date).toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
         day: "numeric",

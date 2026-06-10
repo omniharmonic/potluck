@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar, CalendarPlus, MapPin, Globe, Link as LinkIcon, Lock, Navigation, ExternalLink, Download, Share2, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, parseEventDate } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
 import type { Potluck, NeedWithClaims, OfferWithProfile, Profile, RsvpWithProfile, CohostWithProfile } from "@/types/database";
@@ -78,8 +78,7 @@ export function PotluckDetailClient({
     /\b(st|ave|blvd|rd|dr|ln|ct|way|pl|pk|hwy|street|avenue|road|drive|lane|court|plaza|park)\b/i.test(potluck.location);
 
   // Calendar helpers — parse as local wall clock time
-  const cleanedDate = potluck.event_date.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "");
-  const eventStart = new Date(cleanedDate);
+  const eventStart = parseEventDate(potluck.event_date);
   const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000); // 2-hour default
 
   // Format as local time for calendar (YYYYMMDDTHHMMSS without Z suffix)

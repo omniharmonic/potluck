@@ -4,7 +4,7 @@ import { isHostOrCohost } from "@/lib/auth-helpers";
 import { nanoid } from "nanoid";
 import { Resend } from "resend";
 import { z } from "zod";
-import { escapeHtml } from "@/lib/utils";
+import { escapeHtml, parseEventDate } from "@/lib/utils";
 
 const InviteSchema = z.object({
   emails: z.array(z.string().email()),
@@ -30,8 +30,7 @@ function buildInviteEmail(params: {
   const location = escapeHtml(params.location);
   const description = escapeHtml(params.description);
 
-  const cleaned = params.eventDate.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "");
-  const dateStr = new Date(cleaned).toLocaleDateString("en-US", {
+  const dateStr = parseEventDate(params.eventDate).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",

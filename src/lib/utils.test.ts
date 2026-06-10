@@ -4,6 +4,7 @@ import {
   escapeHtml,
   generateSlug,
   getClaimProgress,
+  parseEventDate,
 } from "./utils";
 
 describe("safeRedirect", () => {
@@ -47,6 +48,26 @@ describe("generateSlug", () => {
   });
   it("is unique across calls", () => {
     expect(generateSlug("x")).not.toBe(generateSlug("x"));
+  });
+});
+
+describe("parseEventDate", () => {
+  it("parses the same wall-clock time regardless of UTC suffix", () => {
+    const z = parseEventDate("2026-06-10T18:30:00Z");
+    const offset = parseEventDate("2026-06-10T18:30:00+05:30");
+    const naive = parseEventDate("2026-06-10T18:30");
+    for (const d of [z, offset, naive]) {
+      expect(d.getFullYear()).toBe(2026);
+      expect(d.getMonth()).toBe(5); // June (0-indexed)
+      expect(d.getDate()).toBe(10);
+      expect(d.getHours()).toBe(18);
+      expect(d.getMinutes()).toBe(30);
+    }
+  });
+  it("is unaffected by millisecond precision", () => {
+    const d = parseEventDate("2026-06-10T18:30:00.123456+00:00");
+    expect(d.getHours()).toBe(18);
+    expect(d.getMinutes()).toBe(30);
   });
 });
 

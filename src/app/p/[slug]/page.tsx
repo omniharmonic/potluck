@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { NEEDS_WITH_CLAIMS_SELECT, OFFERS_SELECT, RSVPS_SELECT } from "@/lib/db-columns";
+import { parseEventDate } from "@/lib/utils";
 import { PotluckDetailClient } from "./potluck-detail-client";
 import type { Metadata } from "next";
 
@@ -21,8 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!potluck) return { title: "Potluck Not Found" };
 
-    const cleaned = potluck.event_date.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "");
-    const date = new Date(cleaned).toLocaleDateString("en-US", {
+    const date = parseEventDate(potluck.event_date).toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",

@@ -13,7 +13,8 @@ export default async function HomePage({
 }) {
   const params = await searchParams;
   const query = params.q || "";
-  const page = parseInt(params.page || "1");
+  const parsedPage = parseInt(params.page || "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const perPage = 12;
 
   let potlucks: any[] = [];

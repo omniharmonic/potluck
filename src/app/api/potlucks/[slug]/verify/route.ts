@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostOrCohost } from "@/lib/auth-helpers";
 import { z } from "zod";
 
@@ -47,7 +47,7 @@ export async function POST(
     }
 
     const data = parsed.data;
-    const serviceClient = await createServiceClient();
+    const serviceClient = createServiceRoleClient();
 
     // Verify claims
     if (data.verified_claim_ids.length > 0) {

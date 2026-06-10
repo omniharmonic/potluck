@@ -22,7 +22,6 @@ interface CohostInviteClientProps {
   eventDate: string;
   location: string;
   hostName: string;
-  inviteAccepted: boolean;
   alreadyCohost: boolean;
   isAuthenticated: boolean;
 }
@@ -34,13 +33,16 @@ export function CohostInviteClient({
   eventDate,
   location,
   hostName,
-  inviteAccepted,
   alreadyCohost,
   isAuthenticated,
 }: CohostInviteClientProps) {
   const router = useRouter();
   const [accepting, setAccepting] = useState(false);
-  const [accepted, setAccepted] = useState(inviteAccepted || alreadyCohost);
+  // Only show the success state if THIS user is actually a co-host. The
+  // invite's `accepted` flag is global to the invite (not per-user), so it
+  // must not gate the success screen — otherwise a second person opening the
+  // link would be wrongly told they're already a co-host.
+  const [accepted, setAccepted] = useState(alreadyCohost);
 
   const handleAccept = async () => {
     setAccepting(true);

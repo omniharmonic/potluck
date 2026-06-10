@@ -435,6 +435,9 @@ export type NeedWithClaims = Need & { claims: ClaimWithProfile[] };
 export type RsvpWithProfile = Rsvp & {
   profile?: Pick<Profile, "display_name" | "avatar_url"> | null;
 };
+export type OfferWithProfile = Offer & {
+  profile?: Pick<Profile, "display_name" | "avatar_url"> | null;
+};
 export type PotluckWithDetails = Potluck & {
   needs: NeedWithClaims[];
   offers: Offer[];

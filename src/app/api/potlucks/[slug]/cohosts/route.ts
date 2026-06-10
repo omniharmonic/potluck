@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { isHostOrCohost } from "@/lib/auth-helpers";
 import { nanoid } from "nanoid";
 import { Resend } from "resend";
 import { z } from "zod";
+import { escapeHtml } from "@/lib/utils";
 
 const InviteCohostSchema = z.object({
   emails: z.array(z.string().email()),
@@ -23,7 +24,9 @@ function buildCohostInviteEmail(params: {
   inviterName: string;
   inviteLink: string;
 }) {
-  const { potluckTitle, inviterName, inviteLink } = params;
+  const { inviteLink } = params;
+  const potluckTitle = escapeHtml(params.potluckTitle);
+  const inviterName = escapeHtml(params.inviterName);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -78,7 +81,7 @@ function buildCohostInviteEmail(params: {
   const text = [
     `You're invited to co-host a potluck!`,
     ``,
-    `${inviterName} has invited you to co-host "${potluckTitle}".`,
+    `${params.inviterName} has invited you to co-host "${params.potluckTitle}".`,
     ``,
     `As a co-host, you'll be able to manage needs, verify contributions, send invites, and more.`,
     ``,

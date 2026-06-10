@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,19 +10,20 @@ import {
   GuestIdentityModal,
   getStoredGuestIdentity,
 } from "@/components/guest-identity-modal";
+import { storeGuestToken } from "@/lib/guest-tokens";
 import { Gift, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import type { Offer } from "@/types/database";
+import type { OfferWithProfile } from "@/types/database";
 
 interface OfferFormProps {
-  potluckId: string;
-  offers: Offer[];
+  potluckSlug: string;
+  offers: OfferWithProfile[];
   onOfferAdded?: () => void;
 }
 
 export function OfferSection({
-  potluckId,
+  potluckSlug,
   offers,
   onOfferAdded,
 }: OfferFormProps) {
@@ -34,29 +34,36 @@ export function OfferSection({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
 
-  const handleSubmit = async (guestName?: string, guestEmail?: string) => {
+  const handleSubmit = async (guestName?: string) => {
     if (!name.trim()) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from("offers").insert({
-        potluck_id: potluckId,
-        profile_id: user?.id || null,
-        guest_name: guestName || null,
-        emoji,
-        name: name.trim(),
-        description: description.trim() || null,
+      const res = await fetch(`/api/potlucks/${potluckSlug}/offers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emoji,
+          name: name.trim(),
+          description: description.trim() || undefined,
+          guest_name: guestName,
+        }),
       });
-
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to submit offer.");
+        return;
+      }
+      if (data.guest_token && data.offer_id) {
+        storeGuestToken("offer", data.offer_id, data.guest_token);
+      }
       toast.success("Offer submitted!");
       setName("");
       setDescription("");
       setEmoji("🎁");
       setShowForm(false);
       onOfferAdded?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to submit offer.");
     } finally {
       setLoading(false);
@@ -97,7 +104,7 @@ export function OfferSection({
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  by {(offer as any).profile?.display_name || offer.guest_name || "Guest"}
+                  by {offer.profile?.display_name || offer.guest_name || "Guest"}
                   {offer.verified && (
                     <Badge variant="success" className="ml-2">
                       Verified
@@ -115,6 +122,7 @@ export function OfferSection({
           <div className="flex gap-2">
             <EmojiPicker value={emoji} onChange={setEmoji} />
             <Input
+              aria-label="What are you bringing?"
               placeholder="What are you bringing?"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -122,6 +130,7 @@ export function OfferSection({
             />
           </div>
           <Textarea
+            aria-label="Offer details (optional)"
             placeholder="Any details? (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -132,7 +141,7 @@ export function OfferSection({
               onClick={() => {
                 if (!user) {
                   const stored = getStoredGuestIdentity();
-                  handleSubmit(stored?.name, stored?.email);
+                  handleSubmit(stored?.name);
                 } else {
                   handleSubmit();
                 }
@@ -165,7 +174,7 @@ export function OfferSection({
       <GuestIdentityModal
         open={showGuestModal}
         onClose={() => setShowGuestModal(false)}
-        onSubmit={(name, email) => {
+        onSubmit={() => {
           setShowGuestModal(false);
           setShowForm(true);
         }}

@@ -37,7 +37,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatDateTime, getClaimProgress } from "@/lib/utils";
-import type { Potluck, NeedWithClaims, Offer, Invite, CohostWithProfile, CohostInvite } from "@/types/database";
+import { NEEDS_WITH_CLAIMS_SELECT, OFFERS_SELECT } from "@/lib/db-columns";
+import type { Potluck, NeedWithClaims, OfferWithProfile, Invite, CohostWithProfile, CohostInvite } from "@/types/database";
 
 export default function ManagePotluckPage() {
   const params = useParams();
@@ -49,7 +50,7 @@ export default function ManagePotluckPage() {
 
   const [potluck, setPotluck] = useState<Potluck | null>(null);
   const [rawNeeds, setRawNeeds] = useState<NeedWithClaims[]>([]);
-  const [rawOffers, setRawOffers] = useState<Offer[]>([]);
+  const [rawOffers, setRawOffers] = useState<OfferWithProfile[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "verify" | "invites" | "cohosts">("overview");
@@ -90,12 +91,12 @@ export default function ManagePotluckPage() {
     const [needsRes, offersRes, invitesRes, cohostsRes, cohostInvitesRes] = await Promise.all([
       supabase
         .from("needs")
-        .select("*, claims(*, profile:profiles(display_name, avatar_url))")
+        .select(NEEDS_WITH_CLAIMS_SELECT)
         .eq("potluck_id", potluckData.id)
         .order("sort_order"),
       supabase
         .from("offers")
-        .select("*, profile:profiles(display_name, avatar_url)")
+        .select(OFFERS_SELECT)
         .eq("potluck_id", potluckData.id)
         .order("created_at"),
       supabase

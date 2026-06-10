@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Offer, NeedWithClaims, RsvpWithProfile } from "@/types/database";
+import { NEEDS_WITH_CLAIMS_SELECT, OFFERS_SELECT, RSVPS_SELECT } from "@/lib/db-columns";
+import type { OfferWithProfile, NeedWithClaims, RsvpWithProfile } from "@/types/database";
 
 export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaims[]) {
   const [needs, setNeeds] = useState<NeedWithClaims[]>(initialNeeds);
@@ -11,7 +12,7 @@ export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaim
   const refetchNeeds = useCallback(async () => {
     const { data: needsData } = await supabaseRef.current
       .from("needs")
-      .select("*, claims(*, profile:profiles(display_name, avatar_url))")
+      .select(NEEDS_WITH_CLAIMS_SELECT)
       .eq("potluck_id", potluckId)
       .order("sort_order");
 
@@ -62,19 +63,19 @@ export function useRealtimeClaims(potluckId: string, initialNeeds: NeedWithClaim
   return { needs, refetchNeeds };
 }
 
-export function useRealtimeOffers(potluckId: string, initialOffers: Offer[]) {
-  const [offers, setOffers] = useState<Offer[]>(initialOffers);
+export function useRealtimeOffers(potluckId: string, initialOffers: OfferWithProfile[]) {
+  const [offers, setOffers] = useState<OfferWithProfile[]>(initialOffers);
   const supabaseRef = useRef(createClient());
 
   const refetchOffers = useCallback(async () => {
     const { data } = await supabaseRef.current
       .from("offers")
-      .select("*, profile:profiles(display_name, avatar_url)")
+      .select(OFFERS_SELECT)
       .eq("potluck_id", potluckId)
       .order("created_at");
 
     if (data) {
-      setOffers(data);
+      setOffers(data as OfferWithProfile[]);
     }
   }, [potluckId]);
 
@@ -115,7 +116,7 @@ export function useRealtimeRsvps(potluckId: string, initialRsvps: RsvpWithProfil
   const refetchRsvps = useCallback(async () => {
     const { data } = await supabaseRef.current
       .from("rsvps")
-      .select("*, profile:profiles(display_name, avatar_url)")
+      .select(RSVPS_SELECT)
       .eq("potluck_id", potluckId)
       .order("created_at");
 

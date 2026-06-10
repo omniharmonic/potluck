@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRealtimeClaims, useRealtimeOffers, useRealtimeRsvps } from "@/hooks/use-realtime-claims";
 import { NeedsList } from "@/components/needs-list";
 import { OfferSection } from "@/components/offer-form";
@@ -21,15 +21,16 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
-import type { Potluck, NeedWithClaims, Offer, Profile, RsvpWithProfile, CohostWithProfile } from "@/types/database";
+import type { Potluck, NeedWithClaims, OfferWithProfile, Profile, RsvpWithProfile, CohostWithProfile } from "@/types/database";
 
 interface PotluckDetailClientProps {
   potluck: Potluck;
   initialNeeds: NeedWithClaims[];
-  initialOffers: Offer[];
+  initialOffers: OfferWithProfile[];
   initialRsvps: RsvpWithProfile[];
   host: Pick<Profile, "id" | "display_name" | "avatar_url"> | null;
   cohosts: CohostWithProfile[];
+  inviteCode?: string;
 }
 
 export function PotluckDetailClient({
@@ -39,8 +40,17 @@ export function PotluckDetailClient({
   initialRsvps,
   host,
   cohosts,
+  inviteCode,
 }: PotluckDetailClientProps) {
   const { user } = useAuth();
+
+  // When an invited, logged-in user lands here via their invite link, record
+  // acceptance (email-bound, server-side) so they keep access on later visits.
+  useEffect(() => {
+    if (inviteCode && user) {
+      fetch(`/api/invite/${inviteCode}/accept`, { method: "POST" }).catch(() => {});
+    }
+  }, [inviteCode, user]);
   const { needs, refetchNeeds } = useRealtimeClaims(potluck.id, initialNeeds);
   const { offers, refetchOffers } = useRealtimeOffers(potluck.id, initialOffers);
   const { rsvps, refetchRsvps } = useRealtimeRsvps(potluck.id, initialRsvps);
@@ -225,7 +235,7 @@ export function PotluckDetailClient({
       <Card>
         <CardContent className="p-4 sm:p-6">
           <RsvpSection
-            potluckId={potluck.id}
+            potluckSlug={potluck.slug}
             rsvps={rsvps}
             onRsvpChanged={() => refetchRsvps()}
           />
@@ -238,7 +248,7 @@ export function PotluckDetailClient({
           <h2 className="text-lg sm:text-xl font-semibold mb-4">What&apos;s Needed</h2>
           <NeedsList
             needs={needs}
-            potluckId={potluck.id}
+            potluckSlug={potluck.slug}
             onClaimed={() => refetchNeeds()}
           />
         </CardContent>
@@ -249,7 +259,7 @@ export function PotluckDetailClient({
         <Card>
           <CardContent className="p-4 sm:p-6">
             <OfferSection
-              potluckId={potluck.id}
+              potluckSlug={potluck.slug}
               offers={offers}
               onOfferAdded={() => refetchOffers()}
             />

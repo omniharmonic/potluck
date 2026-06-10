@@ -5,6 +5,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Only allow same-origin relative redirect targets. Anything that is an
+ * absolute URL, protocol-relative (`//evil.com`), or not a path is rejected
+ * in favour of the homepage. Prevents open-redirect phishing.
+ */
+export function safeRedirect(raw: string | null | undefined): string {
+  if (!raw) return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
+    return "/";
+  }
+  return raw;
+}
+
+/** Escape a string for safe interpolation into HTML (e.g. email templates). */
+export function escapeHtml(input: string): string {
+  return input.replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case '"': return "&quot;";
+      default: return "&#39;";
+    }
+  });
+}
+
 export function generateSlug(title: string): string {
   const base = title
     .toLowerCase()

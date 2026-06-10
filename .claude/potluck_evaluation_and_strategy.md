@@ -7,6 +7,57 @@
 
 ---
 
+## 0a. Remediation status (execution pass, 2026-06-10)
+
+The findings below were systematically remediated on this branch. Every change
+was verified with `tsc`, ESLint, `next build`, Vitest unit tests, and — for the
+security model — a **live Postgres RLS test harness** (`supabase/tests/`) that
+first reproduces each vulnerability against the real migrations
+(`baseline_vuln.sql`), then proves the fix closes it (`rls_security.sql`).
+The §0 caveat about "no live RLS testing" no longer applies to the DB layer.
+
+**Done & verified:**
+
+- **§3.1–3.4 RLS overhaul** — migration `013_security_hardening.sql`: scoped
+  reads via canonical `can_view_potluck`/`can_manage_potluck`, non-spoofable
+  writes, column-level lockdown of `guest_email`/`guest_token`, world-readable
+  invite and co-host codes removed, capacity-safe `create_claim` RPC.
+- **Server-mediated participant writes** — claims/offers/RSVPs now go through
+  `/api/potlucks/[slug]/{claims,offers,rsvps}` with access checks, capacity
+  enforcement, rate limiting, and **guest capability tokens** (also fixes the
+  §4.1 silent guest-unclaim bug; tokens held in `localStorage`, never readable
+  via RLS).
+- **§3.2** invite landing is read-only; new email-bound authenticated accept
+  route. **§3.5** open redirect fixed (`safeRedirect`). **§3.6** service client
+  renamed honestly. **§3.7** invitation emails escape host-controlled values.
+  **§3.8** nanoid slugs + collision retry, security headers, per-user storage
+  folder ownership, verify-route IDOR scoping.
+- **§4.2–4.10 correctness** — verification panel resyncs from props; null-safe
+  search + no prop mutation in My Potlucks; banner upload failures surface;
+  realtime refetches debounced; `parseEventDate` centralizes timezone-proof
+  parsing; object-URL leak fixed; co-host invite false positive fixed; profile
+  fetch hardened.
+- **§5.4 points ledger** — migration `014_points_ledger.sql`: auditable
+  `points_ledger` + idempotent `set_points()`; delete-reverses-points trigger.
+  Proven by `points_ledger.sql` (award/idempotent/adjust/unverify/delete).
+- **§5.5** event status lifecycle UI (mark completed / reopen) and the
+  "You're bringing" personal summary. **§5.9** transactional notifications
+  (host on claim, participant on verify; no-op without `RESEND_API_KEY`).
+- **§2 / PRD** real drag-and-drop need reordering via dnd-kit (pointer, touch,
+  keyboard).
+- **§7 accessibility** — aria-labels on all icon-only controls, radiogroup /
+  tablist / tabpanel semantics, keyboard-operable dropzone, labelled inputs.
+- **§6.5/§9 tooling** — ESLint config restored, Vitest unit tests (redirect
+  safety, HTML escaping, slugs, rate limiter, date parsing), GitHub Actions CI
+  running static checks plus both Postgres suites against `postgres:16`.
+
+**Intentionally deferred:** §6.1 manage-page decomposition (pure refactor,
+high regression risk without live QA); §5.6 migration squash (kept additive
+013/014 so deployed environments migrate cleanly); manage-side reorder
+persistence (creation-side reorder is done).
+
+---
+
 ## 0. Methodology & honest testing caveat
 
 This is a **static** evaluation backed by:

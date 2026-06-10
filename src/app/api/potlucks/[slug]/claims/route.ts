@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { resolveWriteContext } from "@/lib/participant-api";
 import { isHostOrCohost } from "@/lib/auth-helpers";
+import { notifyHostOfClaim } from "@/lib/notifications";
 
 const CreateSchema = z.object({
   need_id: z.string().uuid(),
@@ -58,6 +59,31 @@ export async function POST(
         return NextResponse.json({ error: "Item not found." }, { status: 404 });
       }
       return NextResponse.json({ error: "Failed to claim." }, { status: 500 });
+    }
+
+    // Best-effort: notify the host. Don't block or fail the response on email.
+    try {
+      const [{ data: potluckRow }, { data: needRow }, claimerProfile] = await Promise.all([
+        service.from("potlucks").select("host_id, title").eq("id", potluck.id).single(),
+        service.from("needs").select("name").eq("id", body.need_id).single(),
+        isGuest
+          ? Promise.resolve(null)
+          : service.from("profiles").select("display_name").eq("id", user!.id).single(),
+      ]);
+      if (potluckRow?.host_id) {
+        await notifyHostOfClaim({
+          service,
+          hostId: potluckRow.host_id,
+          claimerName: isGuest
+            ? body.guest_name!
+            : claimerProfile?.data?.display_name || "A member",
+          needName: needRow?.name || "an item",
+          potluckTitle: potluckRow.title || "your potluck",
+          potluckSlug: potluck.slug,
+        });
+      }
+    } catch {
+      // ignore notification failures
     }
 
     return NextResponse.json({ claim: data, guest_token: guestToken });

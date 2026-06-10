@@ -119,8 +119,9 @@ function EmojiGrid({
               !activeCategory ? "bg-muted" : "hover:bg-muted/50"
             }`}
             title="Frequently Used"
+            aria-label="Frequently used emojis"
           >
-            ⏱️
+            <span aria-hidden="true">⏱️</span>
           </button>
           {EMOJI_CATEGORIES.map((cat) => (
             <button
@@ -131,8 +132,9 @@ function EmojiGrid({
                 activeCategory === cat.name ? "bg-muted" : "hover:bg-muted/50"
               }`}
               title={cat.name}
+              aria-label={cat.name}
             >
-              {cat.icon}
+              <span aria-hidden="true">{cat.icon}</span>
             </button>
           ))}
         </div>
@@ -164,6 +166,7 @@ function EmojiGrid({
                 <button
                   key={`${emoji}-${i}`}
                   type="button"
+                  aria-label={`Choose ${emoji}`}
                   className="h-11 w-11 sm:h-9 sm:w-9 mx-auto flex items-center justify-center text-2xl sm:text-xl rounded-lg hover:bg-muted active:bg-muted/80 transition-colors"
                   onClick={() => onSelect(emoji)}
                 >
@@ -187,6 +190,7 @@ function EmojiGrid({
                   <button
                     key={emoji}
                     type="button"
+                    aria-label={`Choose ${emoji}`}
                     className="h-11 w-11 sm:h-9 sm:w-9 mx-auto flex items-center justify-center text-2xl sm:text-xl rounded-lg hover:bg-muted active:bg-muted/80 transition-colors"
                     onClick={() => onSelect(emoji)}
                   >
@@ -205,6 +209,7 @@ function EmojiGrid({
                     <button
                       key={`${emoji}-${i}`}
                       type="button"
+                      aria-label={`Choose ${emoji}`}
                       className="h-11 w-11 sm:h-9 sm:w-9 mx-auto flex items-center justify-center text-2xl sm:text-xl rounded-lg hover:bg-muted active:bg-muted/80 transition-colors"
                       onClick={() => onSelect(emoji)}
                     >
@@ -253,6 +258,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <Input
+          aria-label="Search emojis"
           placeholder="Search emojis..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}

@@ -235,8 +235,12 @@ export default function CreatePotluckPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <Label>Access Level</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Label id="access-level-label">Access Level</Label>
+              <div
+                role="radiogroup"
+                aria-labelledby="access-level-label"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+              >
                 {(
                   [
                     {
@@ -259,8 +263,10 @@ export default function CreatePotluckPage() {
                   <button
                     key={option.value}
                     type="button"
+                    role="radio"
+                    aria-checked={accessLevel === option.value}
                     onClick={() => setAccessLevel(option.value)}
-                    className={`p-3 rounded-lg border text-left transition-colors ${
+                    className={`p-3 rounded-lg border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       accessLevel === option.value
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50"

@@ -201,6 +201,26 @@ export default function ManagePotluckPage() {
     }
   };
 
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const setStatus = async (status: "active" | "completed") => {
+    if (!potluck) return;
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/potlucks/${slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(status === "completed" ? "Marked as completed." : "Reopened.");
+      fetchData();
+    } catch {
+      toast.error("Failed to update status.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const startEditNeed = (need: NeedWithClaims) => {
     setEditingNeedId(need.id);
     setEditNeedName(need.name);
@@ -735,20 +755,58 @@ export default function ManagePotluckPage() {
       )}
 
       {activeTab === "verify" && (
-        <Card role="tabpanel" id="panel-verify" aria-labelledby="tab-verify">
-          <CardContent className="p-4 sm:p-6">
-            <VerificationPanel
-              potluckSlug={slug}
-              needs={needs}
-              offers={offers}
-              pointsEnabled={potluck.points_enabled}
-              onVerified={() => {
-                refetchNeeds();
-                refetchOffers();
-              }}
-            />
-          </CardContent>
-        </Card>
+        <div role="tabpanel" id="panel-verify" aria-labelledby="tab-verify" className="space-y-4">
+          <Card>
+            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="font-medium text-sm flex items-center gap-2">
+                  Event status
+                  <Badge variant={potluck.status === "completed" ? "secondary" : "success"}>
+                    {potluck.status === "completed" ? "Completed" : "Active"}
+                  </Badge>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {potluck.status === "completed"
+                    ? "This potluck is marked completed and hidden from public feeds."
+                    : "Mark completed after the event to wrap up verification."}
+                </p>
+              </div>
+              {potluck.status === "completed" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={updatingStatus}
+                  onClick={() => setStatus("active")}
+                >
+                  Reopen
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={updatingStatus}
+                  onClick={() => setStatus("completed")}
+                >
+                  <CheckCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Mark as completed
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <VerificationPanel
+                potluckSlug={slug}
+                needs={needs}
+                offers={offers}
+                pointsEnabled={potluck.points_enabled}
+                onVerified={() => {
+                  refetchNeeds();
+                  refetchOffers();
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {activeTab === "invites" && (

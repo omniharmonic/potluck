@@ -4,7 +4,11 @@
 # Usage: run.sh <test_file.sql>
 set -euo pipefail
 
-PSQL="psql -v ON_ERROR_STOP=1 -U postgres -h /var/run/postgresql -X -q"
+# Connection comes from standard libpq env vars (PGHOST/PGUSER/PGPASSWORD).
+# Defaults target a local unix-socket server; CI overrides PGHOST=localhost etc.
+export PGHOST="${PGHOST:-/var/run/postgresql}"
+export PGUSER="${PGUSER:-postgres}"
+PSQL="psql -v ON_ERROR_STOP=1 -X -q"
 DB="potluck_test"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 MIG="$DIR/../migrations"

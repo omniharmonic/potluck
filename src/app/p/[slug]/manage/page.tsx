@@ -451,38 +451,50 @@ export default function ManagePotluckPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      <div role="tablist" aria-label="Manage potluck" className="flex gap-2 border-b overflow-x-auto">
         <button
+          role="tab"
+          id="tab-overview"
+          aria-selected={activeTab === "overview"}
+          aria-controls="panel-overview"
           onClick={() => setActiveTab("overview")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "overview"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Users className="inline mr-1.5 h-4 w-4" />
+          <Users className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Overview
         </button>
         <button
+          role="tab"
+          id="tab-verify"
+          aria-selected={activeTab === "verify"}
+          aria-controls="panel-verify"
           onClick={() => setActiveTab("verify")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "verify"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <CheckCircle className="inline mr-1.5 h-4 w-4" />
+          <CheckCircle className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Verify
         </button>
         <button
+          role="tab"
+          id="tab-invites"
+          aria-selected={activeTab === "invites"}
+          aria-controls="panel-invites"
           onClick={() => setActiveTab("invites")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "invites"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Mail className="inline mr-1.5 h-4 w-4" />
+          <Mail className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Invites
           {invites.length > 0 && (
             <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
@@ -491,14 +503,18 @@ export default function ManagePotluckPage() {
           )}
         </button>
         <button
+          role="tab"
+          id="tab-cohosts"
+          aria-selected={activeTab === "cohosts"}
+          aria-controls="panel-cohosts"
           onClick={() => setActiveTab("cohosts")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
             activeTab === "cohosts"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <UserPlus className="inline mr-1.5 h-4 w-4" />
+          <UserPlus className="inline mr-1.5 h-4 w-4" aria-hidden="true" />
           Co-Hosts
           {cohosts.length > 0 && (
             <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">
@@ -509,7 +525,7 @@ export default function ManagePotluckPage() {
       </div>
 
       {activeTab === "overview" && (
-        <div className="space-y-6">
+        <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" className="space-y-6">
           {/* Event details */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -719,7 +735,7 @@ export default function ManagePotluckPage() {
       )}
 
       {activeTab === "verify" && (
-        <Card>
+        <Card role="tabpanel" id="panel-verify" aria-labelledby="tab-verify">
           <CardContent className="p-4 sm:p-6">
             <VerificationPanel
               potluckSlug={slug}
@@ -736,7 +752,7 @@ export default function ManagePotluckPage() {
       )}
 
       {activeTab === "invites" && (
-        <div className="space-y-6">
+        <div role="tabpanel" id="panel-invites" aria-labelledby="tab-invites" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -878,7 +894,7 @@ export default function ManagePotluckPage() {
       )}
 
       {activeTab === "cohosts" && (
-        <div className="space-y-6">
+        <div role="tabpanel" id="panel-cohosts" aria-labelledby="tab-cohosts" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

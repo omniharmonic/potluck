@@ -77,19 +77,21 @@ export function MyPotlucksSection({
           </p>
         </div>
         <div className="relative w-full sm:w-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search my potlucks..."
+            aria-label="Search my potlucks"
             className="pl-9 w-full sm:w-64"
           />
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="group" aria-label="Filter my potlucks">
         <button
           onClick={() => setTab("all")}
+          aria-pressed={tab === "all"}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
             tab === "all"
               ? "bg-primary text-primary-foreground"
@@ -106,13 +108,14 @@ export function MyPotlucksSection({
         </button>
         <button
           onClick={() => setTab("hosting")}
+          aria-pressed={tab === "hosting"}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
             tab === "hosting"
               ? "bg-primary text-primary-foreground"
               : "bg-muted text-muted-foreground hover:bg-muted/80"
           }`}
         >
-          <ChefHat className="h-3.5 w-3.5" />
+          <ChefHat className="h-3.5 w-3.5" aria-hidden="true" />
           Hosting
           <Badge
             variant="secondary"
@@ -124,13 +127,14 @@ export function MyPotlucksSection({
         {attendingOnly.length > 0 && (
           <button
             onClick={() => setTab("attending")}
+            aria-pressed={tab === "attending"}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               tab === "attending"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            <Users className="h-3.5 w-3.5" />
+            <Users className="h-3.5 w-3.5" aria-hidden="true" />
             Attending
             <Badge
               variant="secondary"

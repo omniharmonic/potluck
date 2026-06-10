@@ -85,8 +85,10 @@ function EmojiGrid({
     const q = search.toLowerCase();
     const matches: string[] = [];
     for (const cat of EMOJI_CATEGORIES) {
+      // Also match the category name so e.g. "food" surfaces a whole section.
+      const categoryMatches = cat.name.toLowerCase().includes(q);
       for (const emoji of cat.emojis) {
-        if (emoji.includes(q)) {
+        if (categoryMatches) {
           matches.push(emoji);
           continue;
         }

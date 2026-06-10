@@ -183,3 +183,17 @@ end;
 $$;
 
 revoke all on function public.create_claim(uuid, uuid, uuid, text, text, text, integer) from anon, authenticated;
+
+-- ------------------------------------------------------------
+-- J. Storage: enforce per-user folder ownership on banner upload
+--    (previously any authenticated user could write anywhere in the bucket).
+--    Uploads are namespaced as `<uid>/<file>`, matching the avatars policy.
+-- ------------------------------------------------------------
+drop policy if exists "Authenticated users can upload banners" on storage.objects;
+create policy "Users can upload own banners"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'banners'
+    and auth.role() = 'authenticated'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );

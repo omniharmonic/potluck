@@ -54,7 +54,8 @@ export async function POST(
       const { data: claims } = await serviceClient
         .from("claims")
         .select()
-        .in("id", data.verified_claim_ids);
+        .in("id", data.verified_claim_ids)
+        .eq("potluck_id", potluck.id); // scope: ignore ids from other potlucks (IDOR)
 
       const needIds = (claims || []).map((c) => c.need_id);
       const { data: relatedNeeds } = await serviceClient
@@ -94,6 +95,7 @@ export async function POST(
         .from("claims")
         .select()
         .in("id", data.unverified_claim_ids)
+        .eq("potluck_id", potluck.id)
         .eq("verified", true);
 
       for (const claim of claims || []) {
@@ -116,7 +118,8 @@ export async function POST(
       const { data: offersToVerify } = await serviceClient
         .from("offers")
         .select()
-        .in("id", data.verified_offer_ids);
+        .in("id", data.verified_offer_ids)
+        .eq("potluck_id", potluck.id);
 
       for (const offer of offersToVerify || []) {
         const pointValue =
@@ -146,6 +149,7 @@ export async function POST(
         .from("offers")
         .select()
         .in("id", data.unverified_offer_ids)
+        .eq("potluck_id", potluck.id)
         .eq("verified", true);
 
       for (const offer of offersToUnverify || []) {

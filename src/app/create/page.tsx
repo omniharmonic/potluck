@@ -77,6 +77,13 @@ export default function CreatePotluckPage() {
         if (uploadRes.ok) {
           const { url } = await uploadRes.json();
           uploadedBannerUrl = url;
+        } else {
+          // Don't silently drop the banner the user chose — surface it and stop
+          // so they can retry rather than creating a potluck without their image.
+          const data = await uploadRes.json().catch(() => ({}));
+          toast.error(data.error || "Banner upload failed. Please try again.");
+          setLoading(false);
+          return;
         }
       }
 

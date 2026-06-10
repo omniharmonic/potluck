@@ -45,29 +45,41 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
-    const slug = generateSlug(data.title);
 
-    const { data: potluck, error: potluckError } = await supabase
-      .from("potlucks")
-      .insert({
-        host_id: user.id,
-        title: data.title,
-        description: data.description,
-        event_date: data.event_date,
-        location: data.location,
-        access_level: data.access_level,
-        open_offers: data.open_offers,
-        points_enabled: data.points_enabled,
-        banner_url: data.banner_url || null,
-        slug,
-        status: "active",
-      })
-      .select()
-      .single();
+    // Insert with a unique slug, retrying on the rare slug collision (23505).
+    let potluck: { id: string; slug: string } | null = null;
+    let potluckError: { code?: string; message: string } | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const slug = generateSlug(data.title);
+      const result = await supabase
+        .from("potlucks")
+        .insert({
+          host_id: user.id,
+          title: data.title,
+          description: data.description,
+          event_date: data.event_date,
+          location: data.location,
+          access_level: data.access_level,
+          open_offers: data.open_offers,
+          points_enabled: data.points_enabled,
+          banner_url: data.banner_url || null,
+          slug,
+          status: "active",
+        })
+        .select("id, slug")
+        .single();
 
-    if (potluckError) {
+      if (!result.error) {
+        potluck = result.data;
+        break;
+      }
+      potluckError = result.error;
+      if (result.error.code !== "23505") break; // not a slug conflict — stop
+    }
+
+    if (!potluck) {
       return NextResponse.json(
-        { error: "Failed to create potluck", details: potluckError.message },
+        { error: "Failed to create potluck", details: potluckError?.message },
         { status: 500 }
       );
     }

@@ -5,7 +5,6 @@ import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeClaims, useRealtimeOffers } from "@/hooks/use-realtime-claims";
-import { NeedsList } from "@/components/needs-list";
 import { VerificationPanel } from "@/components/verification-panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

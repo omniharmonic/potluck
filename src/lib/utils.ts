@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { nanoid } from "nanoid";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -37,8 +38,9 @@ export function generateSlug(title: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 40);
-  const suffix = Math.random().toString(36).slice(2, 8);
-  return `${base}-${suffix}`;
+  // nanoid gives a collision-resistant, URL-safe suffix (Math.random is neither).
+  const suffix = nanoid(8).toLowerCase().replace(/[^a-z0-9]/g, "");
+  return base ? `${base}-${suffix}` : suffix;
 }
 
 export function formatDate(dateString: string): string {

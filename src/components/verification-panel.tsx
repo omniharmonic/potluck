@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
-import type { NeedWithClaims, Offer } from "@/types/database";
+import type { NeedWithClaims, OfferWithProfile } from "@/types/database";
 
 interface VerificationPanelProps {
   potluckSlug: string;
   needs: NeedWithClaims[];
-  offers: Offer[];
+  offers: OfferWithProfile[];
   pointsEnabled: boolean;
   onVerified?: () => void;
 }
@@ -43,6 +43,20 @@ export function VerificationPanel({
     });
     return pts;
   });
+
+  // Re-sync local state when the parent refetches (e.g. after Save or a
+  // realtime update). Lazy useState only seeds once, so without this the
+  // checkmarks would drift from server truth and a later Save could clobber
+  // concurrent changes.
+  useEffect(() => {
+    const ids = new Set<string>();
+    needs.forEach((n) => n.claims.forEach((c) => { if (c.verified) ids.add(c.id); }));
+    offers.forEach((o) => { if (o.verified) ids.add(o.id); });
+    setVerifiedIds(ids);
+    const pts: Record<string, number> = {};
+    offers.forEach((o) => { pts[o.id] = o.points_awarded || 0; });
+    setOfferPoints(pts);
+  }, [needs, offers]);
 
   const toggleVerify = (id: string) => {
     setVerifiedIds((prev) => {
@@ -133,13 +147,15 @@ export function VerificationPanel({
               <button
                 type="button"
                 onClick={() => toggleVerify(claim.id)}
+                aria-pressed={verifiedIds.has(claim.id)}
+                aria-label={`${verifiedIds.has(claim.id) ? "Verified" : "Mark verified"}: ${claim.needName} by ${claim.profile?.display_name || claim.guest_name || "Guest"}`}
                 className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                   verifiedIds.has(claim.id)
                     ? "bg-warm-green text-white"
                     : "bg-muted text-muted-foreground hover:bg-muted-foreground/20"
                 }`}
               >
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4" aria-hidden="true" />
               </button>
               <span className="text-xl shrink-0">{claim.needEmoji}</span>
               <div className="flex-1 min-w-0">
@@ -169,19 +185,21 @@ export function VerificationPanel({
               <button
                 type="button"
                 onClick={() => toggleVerify(offer.id)}
+                aria-pressed={verifiedIds.has(offer.id)}
+                aria-label={`${verifiedIds.has(offer.id) ? "Verified" : "Mark verified"}: ${offer.name} by ${offer.profile?.display_name || offer.guest_name || "Guest"}`}
                 className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                   verifiedIds.has(offer.id)
                     ? "bg-warm-green text-white"
                     : "bg-muted text-muted-foreground hover:bg-muted-foreground/20"
                 }`}
               >
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4" aria-hidden="true" />
               </button>
               <span className="text-xl shrink-0">{offer.emoji}</span>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm">{offer.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  by {(offer as any).profile?.display_name || offer.guest_name || "Guest"}
+                  by {offer.profile?.display_name || offer.guest_name || "Guest"}
                 </p>
               </div>
               {pointsEnabled && (

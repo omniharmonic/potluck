@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Upload, X, ImageIcon } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MAX_BANNER_SIZE, ALLOWED_IMAGE_TYPES } from "@/lib/constants";
 import { toast } from "sonner";
@@ -15,6 +15,14 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
   const [preview, setPreview] = useState<string | null>(value);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Track object URLs we create so we can revoke them and avoid leaking blobs.
+  const objectUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
 
   const handleFile = (file: File) => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -26,7 +34,9 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
       return;
     }
 
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const url = URL.createObjectURL(file);
+    objectUrlRef.current = url;
     setPreview(url);
     onChange(url, file);
   };
@@ -44,6 +54,10 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
   };
 
   const handleRemove = () => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
     setPreview(null);
     onChange(null, null);
     if (inputRef.current) inputRef.current.value = "";
@@ -62,20 +76,30 @@ export function BannerUpload({ value, onChange }: BannerUploadProps) {
             type="button"
             variant="destructive"
             size="icon"
+            aria-label="Remove banner image"
             className="absolute top-2 right-2 h-8 w-8"
             onClick={handleRemove}
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       ) : (
         <div
-          className={`aspect-[16/9] w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
+          role="button"
+          tabIndex={0}
+          aria-label="Upload a banner image"
+          className={`aspect-[16/9] w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             dragOver
               ? "border-primary bg-primary/5"
               : "border-muted-foreground/25 hover:border-primary/50"
           }`}
           onClick={() => inputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              inputRef.current?.click();
+            }
+          }}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);

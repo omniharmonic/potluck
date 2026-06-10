@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { CLAIM_COLUMNS } from "@/lib/db-columns";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,8 @@ export default function ProfilePage() {
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-
+    setLoadingData(true);
+    try {
     const [hostedRes, claimsRes, cohostRes] = await Promise.all([
       supabase
         .from("potlucks")
@@ -53,7 +55,7 @@ export default function ProfilePage() {
         .order("event_date", { ascending: false }),
       supabase
         .from("claims")
-        .select("*, potlucks(*)")
+        .select(`${CLAIM_COLUMNS}, potlucks(*)`)
         .eq("profile_id", user.id)
         .order("created_at", { ascending: false }),
       supabase
@@ -96,7 +98,11 @@ export default function ProfilePage() {
       }
     });
     setParticipatedPotlucks(Array.from(potluckMap.values()));
-    setLoadingData(false);
+    } catch {
+      // Surface nothing destructive; just stop the spinner so the page renders.
+    } finally {
+      setLoadingData(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 

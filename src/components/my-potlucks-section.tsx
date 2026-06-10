@@ -50,13 +50,14 @@ export function MyPotlucksSection({
       const q = search.toLowerCase();
       list = list.filter(
         (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          p.location.toLowerCase().includes(q)
+          (p.title || "").toLowerCase().includes(q) ||
+          (p.description || "").toLowerCase().includes(q) ||
+          (p.location || "").toLowerCase().includes(q)
       );
     }
 
-    return list.sort(
+    // Sort a copy — never mutate the incoming `hosted`/`participating` props.
+    return [...list].sort(
       (a, b) =>
         new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
     );

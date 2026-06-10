@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar, CalendarPlus, MapPin, Globe, Link as LinkIcon, Lock, Navigation, ExternalLink, Download, Share2, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { getGuestToken } from "@/lib/guest-tokens";
 import { formatDateTime, parseEventDate } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -58,6 +59,22 @@ export function PotluckDetailClient({
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const isHost = user?.id === potluck.host_id || cohosts.some((c) => c.profile_id === user?.id);
+
+  // "What you've committed to bring" — the current user's (or guest's) claims
+  // and offers, identified by profile match or held capability token.
+  const myClaims = needs.flatMap((n) =>
+    n.claims
+      .filter((c) =>
+        user ? c.profile_id === user.id : !!getGuestToken("claim", c.id)
+      )
+      .map((c) => ({ id: c.id, emoji: n.emoji, name: n.name }))
+  );
+  const myOffers = offers
+    .filter((o) =>
+      user ? o.profile_id === user.id : !!getGuestToken("offer", o.id)
+    )
+    .map((o) => ({ id: o.id, emoji: o.emoji, name: o.name }));
+  const myContributions = [...myClaims, ...myOffers];
 
   const shareLink = () => {
     const url = window.location.href;
@@ -240,6 +257,28 @@ export function PotluckDetailClient({
           />
         </CardContent>
       </Card>
+
+      {/* Personal summary — what you've committed to bring */}
+      {myContributions.length > 0 && (
+        <Card className="border-warm-green/40 bg-warm-green/5">
+          <CardContent className="p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold mb-3 flex items-center gap-2">
+              <span aria-hidden="true">✅</span> You&apos;re bringing
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {myContributions.map((c) => (
+                <li
+                  key={c.id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-warm-green/40 bg-background px-3 py-1 text-sm"
+                >
+                  <span aria-hidden="true">{c.emoji}</span>
+                  {c.name}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Needs */}
       <Card>
